@@ -1,0 +1,78 @@
+version: '3'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: docker-project-frontend
+    command: serve -s build -l 3000
+    restart: unless-stopped
+    networks:
+      - docker-project-networks
+
+  api:
+    build: ./api
+    container_name: docker-project-api
+    command: npm run start
+    restart: unless-stopped
+    environment:
+      - PORT=3001
+      - MONGO_URL=mongodb://api_db:27017/api
+      - URL_AUTH_API=http://auth:3002
+    depends_on:
+      - api_db
+    networks:
+      - docker-project-networks
+
+  auth:
+    build: ./auth
+    container_name: docker-project-auth
+    command: npm run start
+    restart: unless-stopped
+    environment:
+      - PORT=3002
+      - MONGO_URL=mongodb://auth_db:27017/auth
+    depends_on:
+      - auth_db
+    networks:
+      - docker-project-networks
+
+  api_db:
+    image: mongo:latest
+    container_name: docker-project-api-db
+    volumes:
+      - mongodb_api:/data/db
+    networks:
+      - docker-project-networks
+
+  auth_db:
+    image: mongo:latest
+    container_name: docker-project-auth-db
+    volumes:
+      - mongodb_auth:/data/db
+    networks:
+      - docker-project-networks
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: docker-project-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf.prod:/etc/nginx/conf.d/nginx.conf
+    depends_on:
+      - frontend
+      - api
+      - auth
+    networks:
+      - docker-project-networks
+
+volumes:
+ mongodb_api:
+ mongodb_auth:
+
+networks:
+  docker-project-networks:
+    driver: bridge
+
